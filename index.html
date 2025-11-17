@@ -2,9 +2,131 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>感情円環ピッカー (iPad版)</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif; 
+      color: #1f2432; 
+      background: #ffffff; 
+      display: flex;
+      flex-direction: column;
+    }
+    header { 
+      padding: 10px 16px; 
+      border-bottom: 1px solid #e3e7ef; 
+      flex-shrink: 0;
+    }
+    h1 { font-size: 18px; margin: 0; }
+    main { 
+      display: flex;
+      gap: 12px; 
+      padding: 12px;
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+    .plot-panel { 
+      flex: 1;
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      border: 1px solid #e3e7ef; 
+      border-radius: 8px; 
+      background: #fafbff;
+      min-width: 0;
+    }
+    .side-panel { 
+      width: 280px;
+      display: flex; 
+      flex-direction: column; 
+      gap: 10px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .group { 
+      padding: 10px; 
+      border: 1px solid #e3e7ef; 
+      border-radius: 8px; 
+      background: #fff; 
+    }
+    .group .label { 
+      font-weight: 600; 
+      margin-bottom: 6px; 
+      font-size: 14px;
+    }
+    .group label { 
+      display: block; 
+      margin: 4px 0; 
+      font-size: 14px;
+    }
+    .buttons { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 6px; 
+    }
+    .buttons button { 
+      padding: 10px 6px; 
+      border: 1px solid #bfc7d5; 
+      background: #f6f8ff; 
+      border-radius: 8px; 
+      font-weight: 600; 
+      color: #2b3148;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .buttons button:active { background: #eef2ff; }
+    #count {
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .readout { 
+      white-space: pre-wrap; 
+      font-family: ui-monospace, Menlo, Consolas, monospace; 
+      background: #fff; 
+      border-radius: 6px; 
+      padding: 8px; 
+      border: 1px solid #c8cfde;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .status { 
+      padding: 8px 10px; 
+      border: 1px dashed #c8cfde; 
+      border-radius: 8px; 
+      color: #566cd6;
+      font-size: 13px;
+    }
+    canvas { 
+      max-width: 100%; 
+      max-height: 100%;
+      display: block;
+      touch-action: none;
+    }
+    footer { 
+      padding: 6px 16px; 
+      border-top: 1px solid #e3e7ef; 
+      color: #6b7280;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 1024px) and (orientation: portrait) { 
+      main { 
+        flex-direction: column;
+      }
+      .side-panel {
+        width: 100%;
+        order: -1;
+        max-height: 35vh;
+      }
+      .plot-panel {
+        flex: 1;
+      }
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -12,7 +134,7 @@
   </header>
   <main>
     <section class="plot-panel">
-      <canvas id="circumplex" width="900" height="900" aria-label="Valence×Arousal 円環"></canvas>
+      <canvas id="circumplex" width="700" height="700" aria-label="Valence×Arousal 円環"></canvas>
     </section>
     <section class="side-panel">
       <div class="group">
@@ -23,10 +145,15 @@
       </div>
       <div class="group">
         <div id="count">履歴: 0 点</div>
-        <div id="readout" class="readout">Valence(x): -\nArousal(y): -\nAngle(°): -\nSnap mode: free\nChosen lbl: -\nNearest lbl: -</div>
+        <div id="readout" class="readout">Valence(x): -
+Arousal(y): -
+Angle(°): -
+Snap mode: free
+Chosen lbl: -
+Nearest lbl: -</div>
       </div>
       <div class="group buttons">
-        <button id="undo">最後を取り消し (Undo)</button>
+        <button id="undo">最後を取り消し</button>
         <button id="clear">履歴をクリア</button>
         <button id="saveCsv">CSVに保存</button>
         <button id="quit">終了</button>
@@ -35,8 +162,303 @@
     </section>
   </main>
   <footer>
-    <small>iPad Safari向け: Canvas + JavaScriptで実装。日本語フォントは端末のものを利用します。</small>
+    <small>iPad向け最適化版: Canvas + JavaScriptで実装</small>
   </footer>
-  <script src="app.js"></script>
+  <script>
+(function(){
+  const canvas = document.getElementById('circumplex');
+  const ctx = canvas.getContext('2d');
+  
+  // Retina対応
+  function setupCanvas(c){
+    const ratio = window.devicePixelRatio || 1;
+    const w = c.width; const h = c.height;
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+    c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+  setupCanvas(canvas);
+
+  const center = { x: canvas.width / (window.devicePixelRatio||1) / 2, y: canvas.height / (window.devicePixelRatio||1) / 2 };
+  const R = Math.min(center.x, center.y) - 30;
+  const rPoint = 0.92;
+  const rText = 1.08;
+
+  const emotions = [
+    ["警戒", 75],["興奮",45],["有頂天",25],["幸福",10],
+    ["満足",-15],["リラックス",-35],["穏やか",-60],["眠い",-90],
+    ["退屈",-120],["抑うつ",-140],["悲しみ",-160],["不快",180],
+    ["いら立ち",160],["怒り",140],["緊張",120],["不安",100]
+  ];
+
+  let snapMode = 'free';
+  let dragging = false;
+  let lastLogTime = null;
+  const logEveryMs = 40;
+  let selected = null;
+  const history = [];
+  const trail = [];
+
+  const statusEl = document.getElementById('status');
+  const readoutEl = document.getElementById('readout');
+  const countEl = document.getElementById('count');
+
+  document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      snapMode = r.value;
+      redrawReadout(selected);
+      statusEl.textContent = `スナップモードを ${snapMode} に変更しました。`;
+      drawAll();
+    });
+  });
+  document.getElementById('undo').addEventListener('click', onUndo);
+  document.getElementById('clear').addEventListener('click', onClear);
+  document.getElementById('saveCsv').addEventListener('click', onSaveCsv);
+  document.getElementById('quit').addEventListener('click', () => {
+    statusEl.textContent = '終了しました（ブラウザタブを閉じてください）。';
+  });
+
+  function normToPx(x,y){ return { x: center.x + x*R, y: center.y - y*R }; }
+  function pxToNorm(px,py){ return { x: (px - center.x)/R, y: -(py - center.y)/R }; }
+  function angleDeg(x,y){ return Math.atan2(y, x) * 180/Math.PI; }
+  
+  function nearestLabel(angle){
+    function dist(a,b){ let d = Math.abs(a-b)%360; return Math.min(d, 360-d); }
+    let best = emotions[0], bestD = Infinity;
+    for(const e of emotions){ const d = dist(angle, e[1]); if(d < bestD){ bestD = d; best = e; } }
+    return best;
+  }
+
+  function applySnap(x,y){
+    let chosen = null;
+    if(snapMode === 'circle'){
+      const r = Math.hypot(x,y);
+      if(r === 0){ x = 1.0; y = 0.0; } else { x /= r; y /= r; }
+    } else if(snapMode === 'labels'){
+      const ang = angleDeg(x,y);
+      const [name, deg] = nearestLabel(ang);
+      const th = deg * Math.PI/180;
+      x = rPoint * Math.cos(th);
+      y = rPoint * Math.sin(th);
+      chosen = name;
+    } else {
+      const r = Math.hypot(x,y);
+      if(r > 1.0){ x/=r; y/=r; }
+    }
+    return {x,y,chosen_label: chosen};
+  }
+
+  function logAndDraw(x,y,chosen_label=null,phase='click'){
+    const ang = angleDeg(x,y);
+    const [nearestName] = nearestLabel(ang);
+    selected = {
+      timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
+      valence: x, arousal: y, angle_deg: ang,
+      label: chosen_label || nearestName, chosen_label,
+      snap_mode: snapMode, phase
+    };
+    history.push({...selected});
+    trail.push({x,y});
+    if(phase === 'release'){ trail.push({x: NaN, y: NaN}); }
+    redrawReadout(selected);
+    drawAll();
+  }
+
+  function redrawReadout(sel){
+    if(!sel){
+      readoutEl.textContent = `Valence(x) : -\nArousal(y) : -\nAngle(°) : -\nSnap mode : ${snapMode}\nChosen lbl : -\nNearest lbl : -`;
+    } else {
+      const [nearestName] = nearestLabel(sel.angle_deg);
+      readoutEl.textContent = `Valence(x) : ${sel.valence.toFixed(2)}\nArousal(y) : ${sel.arousal.toFixed(2)}\nAngle(°) : ${sel.angle_deg.toFixed(1)}\nSnap mode : ${snapMode}\nChosen lbl : ${sel.chosen_label || '-'}\nNearest lbl : ${nearestName}`;
+    }
+    countEl.textContent = `履歴: ${history.length} 点`;
+  }
+
+  function drawAll(){
+    const w = canvas.width/(window.devicePixelRatio||1), h = canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,w,h);
+
+    ctx.save();
+    ctx.translate(center.x, center.y);
+    ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2);
+    ctx.fillStyle = '#f8f9fb'; ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = '#bfc7d5'; ctx.stroke();
+
+    ctx.lineWidth = 1.1; ctx.strokeStyle = '#9aa4b2';
+    ctx.beginPath(); ctx.moveTo(-R,0); ctx.lineTo(R,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-R); ctx.lineTo(0,R); ctx.stroke();
+
+    for(const r of [0.5,0.75]){
+      ctx.beginPath(); ctx.arc(0,0,R*r,0,Math.PI*2);
+      ctx.lineWidth = 1; ctx.strokeStyle = '#e3e7ef'; ctx.stroke();
+    }
+
+    ctx.font = '12px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif';
+    ctx.fillStyle = '#2b3148';
+    for(const [label, deg] of emotions){
+      const th = deg * Math.PI/180;
+      const x = R * rPoint * Math.cos(th);
+      const y = - R * rPoint * Math.sin(th);
+      ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fillStyle = '#566cd6'; ctx.fill();
+      const tx = R * rText * Math.cos(th);
+      const ty = - R * rText * Math.sin(th);
+      ctx.fillStyle = '#2b3148';
+      const ha = Math.cos(th) >= 0 ? 'left' : 'right';
+      const va = Math.sin(th) >= 0 ? 'top' : 'bottom';
+      ctx.textAlign = ha; ctx.textBaseline = va;
+      ctx.fillText(label, tx, ty);
+      ctx.strokeStyle = '#c8cfde'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = '#e4572e'; ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    let started = false;
+    for(const p of trail){
+      if(Number.isNaN(p.x) || Number.isNaN(p.y)){ started = false; continue; }
+      const {x,y} = normToPx(p.x, p.y);
+      if(!started){ ctx.moveTo(x,y); started = true; }
+      else { ctx.lineTo(x,y); }
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    if(selected){
+      const {x,y} = normToPx(selected.valence, selected.arousal);
+      ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2);
+      ctx.lineWidth = 1.2; ctx.strokeStyle = '#e4572e'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2);
+      ctx.fillStyle = '#e4572e'; ctx.fill();
+    }
+  }
+
+  function getCanvasPos(evt){
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if(evt.touches && evt.touches.length){ 
+      clientX = evt.touches[0].clientX; 
+      clientY = evt.touches[0].clientY; 
+    } else { 
+      clientX = evt.clientX; 
+      clientY = evt.clientY; 
+    }
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function onPress(evt){
+    evt.preventDefault();
+    const p = getCanvasPos(evt);
+    const n = pxToNorm(p.x, p.y);
+    const {x,y,chosen_label} = applySnap(n.x, n.y);
+    dragging = true; lastLogTime = performance.now();
+    logAndDraw(x,y,chosen_label,'press');
+  }
+  
+  function onMove(evt){
+    if(!dragging) return; 
+    evt.preventDefault();
+    const p = getCanvasPos(evt);
+    const n = pxToNorm(p.x, p.y);
+    const {x,y,chosen_label} = applySnap(n.x, n.y);
+    const now = performance.now();
+    if(!lastLogTime || (now - lastLogTime) >= logEveryMs){
+      lastLogTime = now; 
+      logAndDraw(x,y,chosen_label,'move');
+    } else {
+      selected = { 
+        timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
+        valence: x, arousal: y, angle_deg: angleDeg(x,y),
+        label: (chosen_label || nearestLabel(angleDeg(x,y))[0]), chosen_label,
+        snap_mode: snapMode, phase: 'move' 
+      };
+      redrawReadout(selected); 
+      drawAll();
+    }
+  }
+  
+  function onRelease(evt){
+    if(!dragging) return; 
+    evt.preventDefault();
+    const p = getCanvasPos(evt);
+    const n = pxToNorm(p.x, p.y);
+    const {x,y,chosen_label} = applySnap(n.x, n.y);
+    logAndDraw(x,y,chosen_label,'release');
+    dragging = false; 
+    lastLogTime = null;
+  }
+
+  canvas.addEventListener('mousedown', onPress);
+  canvas.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onRelease);
+  canvas.addEventListener('touchstart', onPress, { passive: false });
+  canvas.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onRelease, { passive: false });
+
+  function onUndo(){
+    if(history.length === 0) return;
+    history.pop();
+    trail.length = 0;
+    for(const row of history){
+      trail.push({x: row.valence, y: row.arousal});
+      if(row.phase === 'release') trail.push({x: NaN, y: NaN});
+    }
+    selected = history.length ? history[history.length-1] : null;
+    redrawReadout(selected); 
+    drawAll();
+    statusEl.textContent = '最後の点を取り消しました。';
+  }
+  
+  function onClear(){
+    if(history.length === 0) return;
+    if(!confirm('履歴をすべて削除しますか？')) return;
+    history.length = 0; 
+    trail.length = 0; 
+    selected = null;
+    redrawReadout(null); 
+    drawAll();
+    statusEl.textContent = '履歴をクリアしました。';
+  }
+  
+  function onSaveCsv(){
+    if(history.length === 0){ 
+      alert('保存する履歴がありません。'); 
+      return; 
+    }
+    const header = ['index','timestamp','phase','valence','arousal','angle_deg','label','snap_mode'];
+    const lines = [header.join(',')];
+    history.forEach((row,i) => {
+      lines.push([
+        i+1,
+        row.timestamp,
+        row.phase || '',
+        row.valence.toFixed(6),
+        row.arousal.toFixed(6),
+        row.angle_deg.toFixed(6),
+        row.label,
+        row.snap_mode
+      ].join(','));
+    });
+    const blob = new Blob([lines.join('\n')+'\n'], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const fname = `circumplex_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.csv`;
+    a.href = url; 
+    a.download = fname; 
+    document.body.appendChild(a); 
+    a.click();
+    URL.revokeObjectURL(url); 
+    a.remove();
+    statusEl.textContent = `CSV を保存しました: ${fname}`;
+  }
+
+  redrawReadout(null);
+  drawAll();
+  setInterval(() => { countEl.textContent = `履歴: ${history.length} 点`; }, 250);
+})();
+  </script>
 </body>
 </html>
