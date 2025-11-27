@@ -153,36 +153,54 @@
     // 簡易モード: 4象限の背景色とラベル
     if(labelMode === 'simple'){
       const quadrants = [
-        { label: '喜', angle: 45, color: 'rgba(255, 223, 0, 0.15)' },   // 黄色 - 喜
-        { label: '怒', angle: 135, color: 'rgba(255, 87, 51, 0.15)' },  // 赤色 - 怒
-        { label: '哀', angle: 225, color: 'rgba(99, 155, 255, 0.15)' }, // 青色 - 哀
-        { label: '楽', angle: 315, color: 'rgba(102, 204, 153, 0.15)' } // 緑色 - 楽
+        { label: '喜', angle: 45, colors: ['rgba(255, 223, 0, 0.1)', 'rgba(255, 223, 0, 0.2)', 'rgba(255, 223, 0, 0.3)'] },   // 黄色 - 喜
+        { label: '怒', angle: 135, colors: ['rgba(255, 87, 51, 0.1)', 'rgba(255, 87, 51, 0.2)', 'rgba(255, 87, 51, 0.3)'] },  // 赤色 - 怒
+        { label: '哀', angle: 225, colors: ['rgba(99, 155, 255, 0.1)', 'rgba(99, 155, 255, 0.2)', 'rgba(99, 155, 255, 0.3)'] }, // 青色 - 哀
+        { label: '楽', angle: 315, colors: ['rgba(102, 204, 153, 0.1)', 'rgba(102, 204, 153, 0.2)', 'rgba(102, 204, 153, 0.3)'] } // 緑色 - 楽
       ];
 
+      // 3段階のグラデーション（内側→外側で濃くなる）
       for(const q of quadrants){
         const startAngle = (q.angle - 45) * Math.PI / 180;
         const endAngle = (q.angle + 45) * Math.PI / 180;
 
-        // 象限の背景色
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.arc(0, 0, R, -startAngle, -endAngle, true);
-        ctx.closePath();
-        ctx.fillStyle = q.color;
-        ctx.fill();
+        // 3段階のリング
+        const rings = [
+          { inner: 0, outer: R * 0.33, color: q.colors[0] },
+          { inner: R * 0.33, outer: R * 0.67, color: q.colors[1] },
+          { inner: R * 0.67, outer: R, color: q.colors[2] }
+        ];
 
-        // 象限の中心にラベル
+        for(const ring of rings){
+          ctx.beginPath();
+          ctx.moveTo(ring.inner * Math.cos(-startAngle), ring.inner * Math.sin(-startAngle));
+          ctx.arc(0, 0, ring.inner, -startAngle, -endAngle, true);
+          ctx.lineTo(ring.outer * Math.cos(-endAngle), ring.outer * Math.sin(-endAngle));
+          ctx.arc(0, 0, ring.outer, -endAngle, -startAngle, false);
+          ctx.closePath();
+          ctx.fillStyle = ring.color;
+          ctx.fill();
+        }
+
+        // 象限の外側にラベル
         const labelAngle = q.angle * Math.PI / 180;
-        const labelDist = R * 0.5;
+        const labelDist = R * 0.7;
         const lx = labelDist * Math.cos(labelAngle);
         const ly = -labelDist * Math.sin(labelAngle);
 
-        ctx.font = `bold ${Math.max(32, R / 8)}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
-        ctx.fillStyle = 'rgba(43, 49, 72, 0.3)';
+        ctx.font = `bold ${Math.max(40, R / 6)}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
+        ctx.fillStyle = 'rgba(43, 49, 72, 0.25)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(q.label, lx, ly);
       }
+
+      // 中心に「普」ラベル
+      ctx.font = `bold ${Math.max(36, R / 7)}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
+      ctx.fillStyle = 'rgba(43, 49, 72, 0.2)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('普', 0, 0);
     }
 
     // 軸線
@@ -206,43 +224,40 @@
       ctx.stroke();
     }
 
-    // ラベル（円周上の点とテキスト）
-    const fontSize = labelMode === 'simple' ? Math.max(14, R / 18) : Math.max(12, Math.min(16, R / 20));
-    ctx.font = `${fontSize}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
+    // ラベル（円周上の点とテキスト）- 通常モードのみ
+    if(labelMode === 'normal'){
+      const fontSize = Math.max(12, Math.min(16, R / 20));
+      ctx.font = `${fontSize}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
 
-    for(const [label, deg] of emotions){
-      const th = deg * Math.PI/180;
-      const x = R * rPoint * Math.cos(th);
-      const y = - R * rPoint * Math.sin(th);
+      for(const [label, deg] of emotions){
+        const th = deg * Math.PI/180;
+        const x = R * rPoint * Math.cos(th);
+        const y = - R * rPoint * Math.sin(th);
 
-      // 点
-      const pointSize = labelMode === 'simple' ? 8 : 6;
-      ctx.beginPath();
-      ctx.arc(x,y,pointSize,0,Math.PI*2);
-      ctx.fillStyle = labelMode === 'simple' ? '#2b3148' : '#566cd6';
-      ctx.fill();
+        // 点
+        ctx.beginPath();
+        ctx.arc(x,y,6,0,Math.PI*2);
+        ctx.fillStyle = '#566cd6';
+        ctx.fill();
 
-      // テキスト
-      const tx = R * rText * Math.cos(th);
-      const ty = - R * rText * Math.sin(th);
-      ctx.fillStyle = '#2b3148';
-      const ha = Math.cos(th) >= 0 ? 'left' : 'right';
-      const va = Math.sin(th) >= 0 ? 'top' : 'bottom';
-      ctx.textAlign = ha;
-      ctx.textBaseline = va;
+        // テキスト
+        const tx = R * rText * Math.cos(th);
+        const ty = - R * rText * Math.sin(th);
+        ctx.fillStyle = '#2b3148';
+        const ha = Math.cos(th) >= 0 ? 'left' : 'right';
+        const va = Math.sin(th) >= 0 ? 'top' : 'bottom';
+        ctx.textAlign = ha;
+        ctx.textBaseline = va;
+        ctx.fillText(label, tx, ty);
 
-      if(labelMode === 'simple'){
-        ctx.font = `bold ${fontSize}px -apple-system, Hiragino Sans, Yu Gothic, Meiryo, sans-serif`;
+        // 接続線
+        ctx.strokeStyle = '#c8cfde';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x,y);
+        ctx.lineTo(tx,ty);
+        ctx.stroke();
       }
-      ctx.fillText(label, tx, ty);
-
-      // 接続線
-      ctx.strokeStyle = labelMode === 'simple' ? '#9aa4b2' : '#c8cfde';
-      ctx.lineWidth = labelMode === 'simple' ? 1.5 : 1;
-      ctx.beginPath();
-      ctx.moveTo(x,y);
-      ctx.lineTo(tx,ty);
-      ctx.stroke();
     }
     ctx.restore();
 
