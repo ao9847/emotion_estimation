@@ -58,6 +58,29 @@ body {
   background: rgba(238, 242, 255, 0.95);
 }
 
+.label-mode-selector {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #bfc7d5;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  pointer-events: auto;
+}
+
+.label-mode-selector label {
+  display: block;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  font-weight: 600;
+}
+
+.label-mode-selector input {
+  margin-right: 6px;
+  pointer-events: auto;
+}
+
 .mode-selector {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid #bfc7d5;
