@@ -27,12 +27,22 @@
   const rPoint = 0.92;
   const rText = 1.08;
 
-  const emotions = [
+  const emotions16 = [
     ["警戒", 75],["興奮",45],["有頂天",25],["幸福",10],
     ["満足",-15],["リラックス",-35],["穏やか",-60],["眠い",-90],
     ["退屈",-120],["抑うつ",-140],["悲しみ",-160],["不快",180],
     ["いら立ち",160],["怒り",140],["緊張",120],["不安",100]
   ];
+
+  const emotions4 = [
+    ["喜", 45],   // 第1象限: Valence+, Arousal+
+    ["怒", 135],  // 第2象限: Valence-, Arousal+
+    ["哀", -135], // 第3象限: Valence-, Arousal-
+    ["楽", -45]   // 第4象限: Valence+, Arousal-
+  ];
+
+  let labelMode = 'normal';
+  let emotions = emotions16;
 
   let snapMode = 'free';
   let dragging = false;
@@ -47,6 +57,16 @@
 
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
+
+  document.querySelectorAll('input[name="labelMode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      labelMode = r.value;
+      emotions = labelMode === 'simple' ? emotions4 : emotions16;
+      updateInfo();
+      statusEl.textContent = `ラベルモード: ${labelMode === 'simple' ? '簡易 (4)' : '通常 (16)'}`;
+      drawAll();
+    });
+  });
 
   document.querySelectorAll('input[name="mode"]').forEach(r => {
     r.addEventListener('change', () => {
@@ -108,7 +128,8 @@
   }
 
   function updateInfo(){
-    infoEl.innerHTML = `履歴: ${history.length} 点<br>Mode: ${snapMode}`;
+    const labelText = labelMode === 'simple' ? '簡易(4)' : '通常(16)';
+    infoEl.innerHTML = `履歴: ${history.length} 点<br>ラベル: ${labelText}<br>Mode: ${snapMode}`;
   }
 
   function drawAll(){
