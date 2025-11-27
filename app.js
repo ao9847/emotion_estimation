@@ -164,11 +164,11 @@
         const startAngle = (q.angle - 45) * Math.PI / 180;
         const endAngle = (q.angle + 45) * Math.PI / 180;
 
-        // 3段階のリング
+        // 3段階のリング（補助リングの位置と一致: 0-50%, 50-75%, 75-100%）
         const rings = [
-          { inner: 0, outer: R * 0.33, color: q.colors[0] },
-          { inner: R * 0.33, outer: R * 0.67, color: q.colors[1] },
-          { inner: R * 0.67, outer: R, color: q.colors[2] }
+          { inner: 0, outer: R * 0.5, color: q.colors[0] },
+          { inner: R * 0.5, outer: R * 0.75, color: q.colors[1] },
+          { inner: R * 0.75, outer: R, color: q.colors[2] }
         ];
 
         for(const ring of rings){
